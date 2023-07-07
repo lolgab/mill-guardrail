@@ -87,6 +87,7 @@ object `mill-guardrail-worker-impl` extends Common {
     ivy"dev.guardrail::guardrail-scala-dropwizard:0.72.0",
     ivy"dev.guardrail::guardrail-scala-http4s:0.76.0",
     ivy"org.snakeyaml:snakeyaml-engine:2.6",
+    ivy"org.slf4j:slf4j-simple:1.7.35",
     chimney
   )
 }

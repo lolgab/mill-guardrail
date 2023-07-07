@@ -1,6 +1,6 @@
 package com.github.lolgab.mill.guardrail.worker
 
-import com.github.lolgab.mill.guardrail.worker.api.GuardrailWorkerApi
+import com.github.lolgab.mill.guardrail.worker.api._
 import mill.Agg
 import mill.PathRef
 import mill.T
@@ -13,10 +13,10 @@ private[guardrail] class GuardrailWorker {
 
   def run(
       guardrailWorkerClasspath: Agg[PathRef],
-      input: Map[String, Seq[api.Args]]
+      input: Array[RunInputEntry]
   )(implicit
       ctx: mill.api.Ctx.Home
-  ): Either[String, List[java.nio.file.Path]] = {
+  ): Array[java.nio.file.Path] = {
     val classloaderSig = guardrailWorkerClasspath.hashCode
     val (bridge, classloader) = scalaInstanceCache match {
       case Some((sig, bridge, classloader)) if sig == classloaderSig =>
@@ -27,13 +27,9 @@ private[guardrail] class GuardrailWorker {
             .map(_.path.toIO.toURI.toURL)
             .iterator
             .to(Seq),
-          parent = getClass.getClassLoader,
+          parent = null,
           sharedLoader = getClass.getClassLoader,
-          sharedPrefixes = Seq(
-            "com.github.lolgab.mill.guardrail.worker.api.",
-            "io.scalaland.chimney.",
-            "scala.collection."
-          )
+          sharedPrefixes = Seq("com.github.lolgab.mill.guardrail.worker.api.")
         )
         try {
           val bridge = cl

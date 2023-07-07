@@ -1,10 +1,10 @@
 package com.github.lolgab.mill.guardrail.worker.api
 
 case class Context(
-    framework: Option[String],
+    framework: String,
     customExtraction: Boolean,
     tracing: Boolean,
-    modules: List[String],
+    modules: Array[String],
     propertyRequirement: PropertyRequirement.Configured,
     tagsBehaviour: Context.TagsBehaviour,
     authImplementation: AuthImplementation
