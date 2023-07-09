@@ -1,10 +1,14 @@
 package com.github.lolgab.mill.guardrail
 
+import com.github.lolgab.mill.guardrail.worker.api.GuardrailError
+import com.github.lolgab.mill.guardrail.worker.api.RunInputEntry
 import io.scalaland.chimney.dsl._
 import mill._
 import mill.api.Result
 import mill.main.BuildInfo
 import mill.scalalib._
+
+import scala.util.control.NonFatal
 
 trait Guardrail extends ScalaModule {
   def guardrailTasks: T[Seq[GuardrailTask]]
@@ -14,27 +18,55 @@ trait Guardrail extends ScalaModule {
   }
 
   def guardrail: T[Seq[PathRef]] = T {
-    val input: Map[String, Seq[worker.api.Args]] = guardrailTasks()
+    val input: Array[RunInputEntry] = guardrailTasks()
       .groupBy(_.language)
       .map { case (language, tasks) =>
-        language.name -> tasks.map(
-          _.args
-            .into[worker.api.Args]
-            .withFieldConst(_.outputPath, Some(T.dest.toString))
-            .withFieldComputed(_.specPath, _.specPath.map(_.path.toString))
-            .transform
+        RunInputEntry(
+          language = language.name,
+          args = tasks
+            .map(
+              _.args
+                .into[worker.api.Args]
+                .withFieldConst(_.outputPath, T.dest.toString)
+                .withFieldComputed(
+                  _.specPath,
+                  _.specPath.map(_.path.toString).orNull
+                )
+                .withFieldComputed(
+                  _.packageName,
+                  _.packageName.map(_.toArray).orNull
+                )
+                .withFieldComputed(
+                  _.context,
+                  _.context
+                    .into[worker.api.Context]
+                    .withFieldComputed(_.framework, _.framework.orNull)
+                    .transform
+                )
+                .transform
+            )
+            .toArray
         )
       }
-      .toMap
-    worker.GuardrailWorkerExternalModule
-      .guardrailWorker()
-      .run(guardrailWorkerClasspath(), input) match {
-      case Right(result) =>
-        Result.Success(
-          result.map(nioPath => PathRef(os.Path(nioPath)))
+      .toArray
+
+    try {
+      val result = worker.GuardrailWorkerExternalModule
+        .guardrailWorker()
+        .run(guardrailWorkerClasspath(), input)
+
+      Result.Success(
+        result.map(nioPath => PathRef(os.Path(nioPath))).toSeq
+      )
+    } catch {
+      case GuardrailError(message) => Result.Failure(message)
+      case NonFatal(t) =>
+        Result.Exception(
+          t,
+          new Result.OuterStack(
+            new java.lang.Exception().getStackTrace().toIndexedSeq
+          )
         )
-      case Left(error) =>
-        Result.Failure(error)
     }
   }
 
@@ -45,7 +77,6 @@ trait Guardrail extends ScalaModule {
         Agg(
           ivy"com.github.lolgab:mill-guardrail-worker-impl_2.13:${worker.GuardrailBuildInfo.publishVersion}"
             .exclude("com.github.lolgab" -> "mill-guardrail-worker-api_2.13")
-            .exclude("io.scalaland" -> "chimney_2.13")
         ).map(Lib.depToBoundDep(_, BuildInfo.scalaVersion)),
         ctx = Some(T.log)
       )

@@ -9,54 +9,68 @@ import scala.io.AnsiColor
 
 class GuardrailWorkerImpl extends GuardrailWorkerApi {
   def run(
-      input: Map[String, Seq[Args]]
-  ): Either[String, List[java.nio.file.Path]] = {
+      input: Array[RunInputEntry]
+  ): Array[java.nio.file.Path] = {
     val guardrailInput =
-      input.view.mapValues { seq =>
-        val guardrailSeq = seq.map(_.transformInto[dev.guardrail.Args]).toList
-        NonEmptyList
-          .fromList(guardrailSeq)
+      input.map { case RunInputEntry(language, args) =>
+        val guardrailArgs =
+          args
+            .map(
+              _.into[dev.guardrail.Args]
+                .withFieldComputed(
+                  _.packageName,
+                  args => Option(args.packageName).map(_.toList)
+                )
+                .transform
+            )
+            .toList
+        language -> NonEmptyList
+          .fromList(guardrailArgs)
           .getOrElse(
-            throw new Exception(
+            throw new GuardrailError(
               "You need to provide at least one guardrailTask"
             )
           )
       }.toMap
     Runner.guardrailRunner.apply(guardrailInput) match {
-      case value: guardrail.TargetValue[_] => Right(value.value)
+      case value: guardrail.TargetValue[_] => value.value.toArray
       case error: guardrail.TargetError[_] =>
         error.error match {
           case guardrail.MissingArg(args, guardrail.Error.ArgName(arg)) =>
-            Left(
+            throw new GuardrailError(
               s"Missing argument: ${arg} (In block ${args})"
             )
           case guardrail.MissingDependency(name) =>
-            Left(
+            throw new GuardrailError(
               s"""Missing dependency: override def ivyDeps = super.ivyDeps() ++ Agg("dev.guardrail" %% "${name}" % "<check latest version>")"""
             )
           case guardrail.NoArgsSpecified =>
-            Right(List.empty)
+            Array.empty[java.nio.file.Path]
           case guardrail.NoFramework =>
-            Left("No framework specified")
+            throw new GuardrailError("No framework specified")
           case guardrail.PrintHelp =>
-            Right(List.empty)
+            Array.empty[java.nio.file.Path]
           case guardrail.UnknownArguments(args) =>
-            Left(s"Unknown arguments: ${args.mkString(" ")}")
+            throw new GuardrailError(
+              s"Unknown arguments: ${args.mkString(" ")}"
+            )
           case guardrail.UnparseableArgument(name, message) =>
-            Left(s"Unparseable argument ${name}: ${message}")
+            throw new GuardrailError(
+              s"Unparseable argument ${name}: ${message}"
+            )
           case guardrail.UnknownFramework(name) =>
-            Left(s"Unknown framework specified: ${name}")
+            throw new GuardrailError(s"Unknown framework specified: ${name}")
           case guardrail.RuntimeFailure(message) =>
-            Left(s"Error: ${message}")
+            throw new GuardrailError(s"Error: ${message}")
           case guardrail.UserError(message) =>
-            Left(s"Error: ${message}")
+            throw new GuardrailError(s"Error: ${message}")
           case guardrail.MissingModule(section, choices) =>
-            Left(
+            throw new GuardrailError(
               s"Error: Missing module ${section}. Options are: ${choices
                   .mkString(", ")}"
             )
           case guardrail.ModuleConflict(section) =>
-            Left(
+            throw new GuardrailError(
               s"Error: Too many modules specified for ${section}"
             )
           case guardrail.UnspecifiedModules(choices) =>
@@ -70,9 +84,9 @@ class GuardrailWorkerImpl extends GuardrailWorkerApi {
                   acc :+ s"  ${AnsiColor.WHITE}${module}: [${AnsiColor.BLUE}${nextLabel}]"
                 }
                 .mkString("\n")
-            Left(s"Unsatisfied module(s):\n$result")
+            throw new GuardrailError(s"Unsatisfied module(s):\n$result")
           case guardrail.UnusedModules(unused) =>
-            Left(
+            throw new GuardrailError(
               s"Unused modules specified: ${unused.toList.mkString(", ")}"
             )
         }
