@@ -1,7 +1,7 @@
 package com.github.lolgab.mill.guardrail.worker.api
 
-sealed trait AuthImplementation
-object AuthImplementation {
+private[guardrail] sealed trait AuthImplementation
+private[guardrail] object AuthImplementation {
   case object Disable extends AuthImplementation
   case object Native extends AuthImplementation
   case object Simple extends AuthImplementation

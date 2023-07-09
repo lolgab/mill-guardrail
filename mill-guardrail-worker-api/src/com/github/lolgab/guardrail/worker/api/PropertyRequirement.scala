@@ -1,8 +1,8 @@
 package com.github.lolgab.mill.guardrail.worker.api
 
-sealed trait PropertyRequirement
+private[guardrail] sealed trait PropertyRequirement
 
-object PropertyRequirement {
+private[guardrail] object PropertyRequirement {
   case object Required extends PropertyRequirement
   case object OptionalNullable extends PropertyRequirement
 

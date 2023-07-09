@@ -42,7 +42,7 @@ trait Common extends ScalaModule with PublishModule with ScalafixModule {
   def scalaVersion = "2.13.11"
 
   def scalacOptions =
-    super.scalacOptions() ++ Seq("-Ywarn-unused", "-deprecation")
+    super.scalacOptions() ++ Seq("-Ywarn-unused", "-deprecation", "-feature")
 
   def scalafixIvyDeps = Agg(ivy"com.github.liancheng::organize-imports:0.6.0")
 }

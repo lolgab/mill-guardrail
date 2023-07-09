@@ -1,6 +1,6 @@
 package com.github.lolgab.mill.guardrail.worker.api
 
-case class Args(
+private[guardrail] case class Args(
     kind: CodegenTarget,
     specPath: String,
     outputPath: String,

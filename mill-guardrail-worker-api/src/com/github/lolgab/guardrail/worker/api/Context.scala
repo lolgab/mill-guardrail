@@ -1,6 +1,6 @@
 package com.github.lolgab.mill.guardrail.worker.api
 
-case class Context(
+private[guardrail] case class Context(
     framework: String,
     customExtraction: Boolean,
     tracing: Boolean,
@@ -10,7 +10,7 @@ case class Context(
     authImplementation: AuthImplementation
 )
 
-object Context {
+private[guardrail] object Context {
   sealed trait TagsBehaviour
   case object PackageFromTags extends TagsBehaviour
   case object TagsAreIgnored extends TagsBehaviour
